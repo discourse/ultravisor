@@ -7,6 +7,9 @@ class Ultravisor::Child::Call
 
 	def go!(receiver)
 		@rv_q << receiver.__send__(@method_name, *@args, &@blk)
+	rescue Exception => ex
+		@rv_q << @rv_fail
+	ensure
 		@rv_q.close
 	end
 
