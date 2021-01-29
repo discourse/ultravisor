@@ -12,6 +12,10 @@ class CastCallTest
 	def poke_processor
 		process_castcall
 	end
+
+	def failing_method
+		raise "A fake exception"
+	end
 end
 
 describe Ultravisor::Child do
@@ -49,6 +53,7 @@ describe Ultravisor::Child do
 
 				# So we can check if and when it's been called
 				allow(instance).to receive(:to_s).and_call_original
+				allow(instance).to receive(:failing_method).and_call_original
 			end
 
 			it "accepts calls to #call" do
@@ -86,6 +91,17 @@ describe Ultravisor::Child do
 				instance.instance_variable_get(:@ultravisor_child_castcall_queue).close
 
 				expect { child.call.to_s }.to raise_error(Ultravisor::ChildRestartedError)
+			end
+
+			it "raises a relevant error if the call itself causes an exception is dying" do
+				th = Thread.new { child.call.failing_method }
+				th.join(0.001)
+
+				expect(instance).to_not have_received(:failing_method)
+				instance.poke_processor
+				expect(instance).to have_received(:failing_method)
+
+				expect { th.value }.to raise_error(Ultravisor::ChildRestartedError)
 			end
 
 			it "raises an error to all incomplete calls if the instance terminates" do
